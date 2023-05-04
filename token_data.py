@@ -1,44 +1,45 @@
-from playwright.sync_api import sync_playwright
+from undetected_chromedriver import Chrome
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+
 import html_to_json
 import logging
-from playwright_stealth import stealth_sync
 
 logger = logging.getLogger(__name__)
 
+
 class Token:
-    def __init__(self, path, time):
+    def __init__(self, path, time, seller):
         self.path = path
         self.time = time
+        self.seller = seller
         self.full_token_info()
 
     def __repr__(self):
         return f'Name: {self.name}\nRarity: {self.rarity}\nEnergy: {self.energy}\nBreed count: ' \
                f'{self.breed_count}\nLevel: {self.level}\nGems current: {self.gems_current}\nGems lef: ' \
                f'{self.gems_left}\nStrength: {self.strength}\nStamina: {self.stamina}\nSpeed: {self.speed}\nBody: ' \
-               f'{self.body}\nEars: {self.ears}\nFace: {self.face}\n Path: {self.path}\n Time: {self.time}\n Max ' \
-               f'attribute: {self.max_attr}'
+               f'{self.body}\nEars: {self.ears}\nFace: {self.face}\n Path: {self.path}\n Seller: {self.seller}\n ' \
+               f'Time: {self.time}\n Max attribute: {self.max_attr}'
 
     def __str__(self):
-        return f"{self.name}+'  '+{self.rarity}+'  '+{self.level}+'/'+{self.breed_count}+'  '+'Max:'+' '+" \
-               f"{self.max_attr}\n'Body: '+{self.body}\nEars: {self.ears}\nFace: {self.face}\n'Time: '+{self.time}"
+        return f"{self.name}  {self.rarity}  {self.level}/{self.breed_count}  Max: {self.max_attr}\nBody: {self.body}\nEars: {self.ears}\nFace: {self.face}\nTime: {self.time}\nSeller: {self.seller[-4:]}"
+
+    def get_html_content(self):
+        driver = Chrome(headless=True)
+        driver.get(self.path)
+        element_present = EC.presence_of_element_located(
+            (By.XPATH, '//*[@id="__next"]/main/div[1]/div/div/div/div[1]/div[2]/div[1]/div[1]/span'))
+        WebDriverWait(driver, 60).until(element_present)
+        content = driver.page_source
+        driver.close()
+        return content
 
 
     def full_token_info(self):
-        with sync_playwright() as p:
-            for browser_type in [p.chromium]:
-                browser = browser_type.launch(headless=True, timeout=60000)
-                context = browser.new_context(extra_http_headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
-                    'Accept-Language': 'en-US,en;q=0.9'})
-                page = context.new_page()
-
-                #stealth_sync(page)
-                page.goto(self.path)
-                page.wait_for_selector("span[class^=\"RarityItem__Text\"]")
-                page_content = page.content()
-                logging.debug('Playwright extracted page content')
-                output = html_to_json.convert(page_content)
-                browser.close()
+        page_content = self.get_html_content()
+        output = html_to_json.convert(page_content)
         self.name = self.get_name(output)
         self.rarity = self.get_rarity(output)
         self.energy = self.get_energy(output)
@@ -54,7 +55,6 @@ class Token:
         self.face = self.get_face(output)
         self.max_attr = self.get_max_attr()
 
-
     def get_name(self, output):
         try:
             return output['html'][0]['body'][0]['div'][0]['main'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][0]['span'][
@@ -64,8 +64,7 @@ class Token:
 
     def get_rarity(self, output):
         try:
-            return output['html'][0]['body'][0]['div'][0]['main'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][0][
-            'span'][0]['_value']
+            return output['html'][0]['body'][0]['div'][0]['main'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][1]['div'][0]['div'][1]['div'][0]['span'][0]['_value']
         except:
             return "Rarity not available"
 
@@ -161,7 +160,7 @@ class Token:
             return "Face not available"
 
     def get_max_attr(self):
-        stamina = int(self.stamina.split('/')[0])
-        speed = int(self.speed.split('/')[0])
-        strength = int(self.strength('/')[0])
+        stamina = float(self.stamina.split('/')[0])
+        speed = float(self.speed.split('/')[0])
+        strength = float(self.strength.split('/')[0])
         return max(strength, stamina, speed)

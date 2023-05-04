@@ -8,16 +8,11 @@ import logging
 logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
 logger = logging.getLogger(__name__)
 
-#logging.basicConfig(filename='app.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s',
-# datefmt='%d-%b-%y %H:%M:%S')
 
-
-#token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
-# .eyJjcmVhdGVkQXQiOjE2ODIwNjIwOTg2NzksImVtYWlsIjoic21pdHRpYXJrYUBnbWFpbC5jb20iLCJhY3Rpb24iOiJ0b2tlbi1hcGkiLCJpYXQiOjE2ODIwNjIwOTh9.FM1ZZkT9Xa70MKs9L_HTIpalCU6SdSaC1kxVyny6d2Q'
-account = 'A2B1w2fpwuJZrF9b69KBFb6Cn4Cp7siKGqQwPBJEGLYj'  # needed for data extraction
+account = 'A2B1w2fpwuJZrF9b69KBFb6Cn4Cp7siKGqQwPBJEGLYj'  # account name needed for data extraction
 last_change_id = None
 
-BOT_TOKEN = '6239867437:AAEsbnqXcIMy1K97QDlgYu1O4REoz8HM-zE'
+BOT_TOKEN = '6239867437:AAH1TJfcdz3M8aLWhr-22LTOxQYo9VYuuGY'
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
 
 
@@ -27,15 +22,16 @@ def command_start(message):
     bot.reply_to(message, "Hello, now I'll be sending you updates on tokens")
     while True:
         send_updates(chat_id)
-        time.sleep(2400)
+        time.sleep(120)
 
 
 def get_account_transactions_url(account):  # returns url for Solscan Account transactions
     beginning = 'https://api.solscan.io/account/token/txs?address='
-    end = '&offset=0&limit=20'
+    end = '&offset=0&limit=40'
     return beginning+account+end
 
-def get_data(url):
+
+def get_data(url):  # returns raw transactions data from Solscan
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36'}
     try:
         response = requests.get(url, headers=headers)
@@ -44,11 +40,11 @@ def get_data(url):
         logging.debug(f'Raw data status -- {response.status_code}')
         return data
     except requests.exceptions.HTTPError as e:
-        logging.error("Http Error occured during raw data extraction process", exc_info=True)
+        logging.error("Http Error occurred during raw data extraction process", exc_info=True)
 
 
-def get_transactions(data):  # process transaction data and filter by LastChangeID, output list of new transactions
-# ready to filter by necessary parameters
+def get_transactions(data):  # process transactions data and filter by LastChangeID, returns a list of new transactions
+    # ready to be filtered by necessary parameters
     transactions_data = data['data']['tx']['transactions']
     transactions = []
     global last_change_id
@@ -64,53 +60,73 @@ def get_transactions(data):  # process transaction data and filter by LastChange
     return transactions
 
 
-def process_transactions(transactions):
-    filtered_transactions = {}
+def process_transactions(transactions):  # transactions list is filtered by 'changeAmount' field(must be equal +1)
+    # those which have 'tokenName'(must be Cathlete) or link, are added to list. Returns list of dictionaries {
+    # date:value, solscan_token_link:value, seller_signature:value}
+    filtered_transactions = []
     for transaction in transactions:
         if str(transaction['change']['changeAmount']) == '1':
+            transaction_dict = {}
             logging.debug(f"Token with +1 value found -- blockTime -- {transaction['blockTime']} -- changeAmount -- {transaction['change']['changeAmount']}")
             if 'tokenName' in transaction['change']:
                 logging.debug(f"Token has a name -- {transaction['change']['tokenName']}")
-                if "Cathlete" in transaction["change"]["tokenName"]:
-                    logging.debug('Transaction with Cathlete')
-                    transaction_date = datetime.fromtimestamp(transaction['blockTime'], timezone.utc).isoformat(' ').replace("+00:00",
-                    " (UTC)")
-                    filtered_transactions[transaction_date] = 'https://api.solscan.io/account?address=' + transaction["change"][
-                        "tokenAddress"]
-                    logging.debug(f"Transaction with slot {transaction['slot']} -- with date {transaction_date} is "
-                                  f"added")
+                if not "Cathlete" in transaction["change"]["tokenName"]:
+                    logging.debug(f'Transaction with name {transaction["change"]["tokenName"]} skipped')
+                    break
+                logging.debug('Transaction with Cathlete')
+                transaction_date = datetime.fromtimestamp(transaction['blockTime'], timezone.utc).isoformat(' ').replace("+00:00",
+                " (UTC)")
+                seller_signature = transaction['change']['signature'][0]
+                transaction_dict['date'] = transaction_date
+                transaction_dict['solscan_token_link'] = 'https://api.solscan.io/account?address=' + transaction[
+                    "change"]["tokenAddress"]
+                transaction_dict['transaction_signature'] = seller_signature
+                logging.debug(f"Transaction: {transaction_dict['date']} -- {transaction_dict['solscan_token_link']} --"
+                              f" {transaction_dict['transaction_signature']} is added")
             else:
                 transaction_date = datetime.fromtimestamp(transaction['blockTime'], timezone.utc).isoformat(
                     ' ').replace("+00:00", " (UTC)")
-                filtered_transactions[transaction_date] = 'https://api.solscan.io/account?address=' + \
-                                                          transaction["change"]["tokenAddress"]
-                logging.debug(f'Transaction with slot -- {transaction["slot"]} -- with date {transaction_date} -- no '
-                              f'name but link is added')
-
+                seller_signature = transaction['change']['signature'][0]
+                transaction_dict['date'] = transaction_date
+                transaction_dict['solscan_token_link'] = 'https://api.solscan.io/account?address=' + \
+                                                         transaction["change"]["tokenAddress"]
+                transaction_dict['transaction_signature'] = seller_signature
+                logging.debug(f"Transaction: {transaction_dict['date']} -- {transaction_dict['solscan_token_link']} -- "
+                              f"{transaction_dict['transaction_signature']} is added")
+            filtered_transactions.append(transaction_dict)
     logging.debug(f'Filtered transactions: \n{filtered_transactions}')
     return filtered_transactions
 
 
-def get_external_link(tokens_data: dict):
-    external_links = {}
-    for key, value in tokens_data.items():
-        int_token_data = get_data(value)
+def get_external_link(tokens_data: list[dict]):  # extracts external link to get ipfs data, where walken links are
+    # stored. Also tokens are filtered by Rarity attribute. Returns a list of dict items with walken links
+    external_links = []
+    for transaction_dict in tokens_data:
+        int_token_data = get_data(transaction_dict['solscan_token_link'])
         logging.debug(f'Internal token data:\n{int_token_data}')
         ipfs_link = int_token_data['data']['metadata']['data']['uri']
         logging.debug(f'IPFS link: \n{ipfs_link}')
         ipfs_data = get_data(ipfs_link)
         logging.debug(f'ipfs data: \n{ipfs_data}')
+
         external_link = ipfs_data['external_url']
         logging.debug(f'External link: {external_link}')
         if ipfs_data['attributes'][1]['value'] == 'Uncommon' or ipfs_data['attributes'][1]['value'] == 'Rare':
             logging.debug(f'Token filtered by rarity')
-            logging.debug(f'Token added -- {key} -- {external_link} ')
-            external_links[key]=external_link
+            logging.debug(f"Token added -- {transaction_dict['solscan_token_link']} -- external link: {external_link}")
+            seller_link = 'https://api.solscan.io/transaction?tx=' + transaction_dict['transaction_signature'] + '&cluster='
+            seller_data = get_data(seller_link)
+            logging.debug('Extracted seller data')
+            seller = seller_data['signer'][0]
+            logging.debug(f'Seller: {seller}')
+            transaction_dict['external link'] = external_link
+            transaction_dict['seller'] = seller
+            external_links.append(transaction_dict)
     logging.debug(f'External links: \n{external_links}')
     return external_links
 
 
-def send_updates(chat_id):
+def send_updates(chat_id):  # method which runs the token data extraction flow
     logging.info(f'Chat id: {chat_id}')
     account_url = get_account_transactions_url(account)
     account_data = get_data(account_url)
@@ -126,9 +142,12 @@ def send_updates(chat_id):
     logging.debug('External links retrieved')
 
     tokens_list = []
-    for key, value in external_links.items():
+    for token_data in external_links:
         try:
-            token_obj = Token(value, key)
+            t_path = token_data['external link']
+            t_date = token_data['date']
+            t_seller = token_data['seller']
+            token_obj = Token(t_path, t_date, t_seller)
             logging.debug(f'Token\n{token_obj.__str__()}')
             if token_obj.breed_count != 0:
                 logging.debug(f'Token skipped: {token_obj.breed_count} {token_obj.path}')
@@ -136,7 +155,7 @@ def send_updates(chat_id):
             logging.debug(f'Token with breed 0 added: {token_obj}')
             tokens_list.append(token_obj)
         except:
-            logging.error(f"Token {key, value} is not available", exc_info=True)
+            logging.error(f"Token {token_data} is not available", exc_info=True)
     logging.debug(f'Tokens list {tokens_list}')
     for token in tokens_list:
         token_str = token.__str__()
