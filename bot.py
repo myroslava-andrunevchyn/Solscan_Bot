@@ -5,7 +5,7 @@ import time
 import telebot
 import logging
 
-logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
+logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
 logger = logging.getLogger(__name__)
 
 
@@ -150,9 +150,9 @@ def send_updates(chat_id):  # method which runs the token data extraction flow
             token_obj = Token(t_path, t_date, t_seller)
             logging.debug(f'Token\n{token_obj.__str__()}')
             if token_obj.breed_count != 0:
-                logging.debug(f'Token skipped: {token_obj.breed_count} {token_obj.path}')
+                logging.info(f'Token skipped: {token_obj} {token_obj.path}')
                 break
-            logging.debug(f'Token with breed 0 added: {token_obj}')
+            logging.info(f'Token with breed 0 added: {token_obj}')
             tokens_list.append(token_obj)
         except:
             logging.error(f"Token {token_data} is not available", exc_info=True)

@@ -27,11 +27,11 @@ class Token:
         return f"{self.name}  {self.rarity}  {self.level}/{self.breed_count}  Max: {self.max_attr}\nBody: {self.body}\nEars: {self.ears}\nFace: {self.face}\nTime: {self.time}\nSeller: {self.seller[-4:]}"
 
     def get_html_content(self):
-        driver = Chrome(headless=True)
+        driver = Chrome(headless=True, patcher_force_close=True)
         driver.get(self.path)
         element_present = EC.presence_of_element_located(
             (By.XPATH, '//*[@id="__next"]/main/div[1]/div/div/div/div[1]/div[2]/div[1]/div[1]/span'))
-        WebDriverWait(driver, 60).until(element_present)
+        WebDriverWait(driver, 30).until(element_present)
         content = driver.page_source
         driver.close()
         return content
