@@ -24,7 +24,9 @@ class Token:
                f'Time: {self.time}\n Max attribute: {self.max_attr}'
 
     def __str__(self):
-        return f"{self.name}  {self.rarity}  {self.level}/{self.breed_count}  Max: {self.max_attr}\nBody: {self.body}\nEars: {self.ears}\nFace: {self.face}\nTime: {self.time}\nSeller: {self.seller[-4:]}"
+        return f"{self.name}   {self.rarity}  {self.level}/{self.breed_count}   Max: {self.max_attr}\n\nBody:" \
+               f" {self.body.rstrip('% have this gene')}\nEars: {self.ears.rstrip('% have this gene')}\n" \
+               f"Face: {self.face.rstrip('% have this gene')}\nTime: {self.time}\nSeller: {self.seller[-4:]}"
 
     def get_html_content(self):
         driver = Chrome(headless=True, patcher_force_close=True)
