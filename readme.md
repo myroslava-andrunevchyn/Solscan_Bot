@@ -3,7 +3,7 @@
 1. Install python 3.11
 2. Install pip latest version
 3. Install required dependencies with command *pip install -r requirements.txt*
-4. Check if variable BOT_TOKEN contains correct value
+4. Check if variable BOT_TOKEN in file .env contains correct value
 5. Run bot.py from terminal like *python bot.py* or from PyCharm
 6. Find bot in telegram and click start 
 
