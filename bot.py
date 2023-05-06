@@ -1,33 +1,17 @@
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 from token_data import Token
 import time
 import telebot
 import logging
 import os
 from dotenv import load_dotenv
+from pytz import timezone
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
-#logger.setLevel(logging.INFO)
-#formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-# creating console handler, setting level to INFO and setting formatter
-#ch = logging.StreamHandler()
-#ch.setLevel(logging.INFO)
-#ch.setFormatter(formatter)
-
-# creating file handler, setting level to DEBUG and setting formatter
-#log_path = os.path.join(os.getcwd(), 'app.log')
-#fh = logging.FileHandler(log_path)
-#fh.setLevel(logging.DEBUG)
-#fh.setFormatter(formatter)
-
-# adding handlers to logger
-#logger.addHandler(ch)
-#logger.addHandler(fh)
 
 account = 'A2B1w2fpwuJZrF9b69KBFb6Cn4Cp7siKGqQwPBJEGLYj'  # account name needed for data extraction
 last_change_id = None
@@ -43,6 +27,13 @@ def command_start(message):
     while True:
         send_updates(chat_id)
         time.sleep(120)
+
+
+def convert_time(blocktime):
+    kyiv_timezone = timezone('Europe/Kyiv')
+    minutes_to_add = 4
+    t_date = datetime.fromtimestamp(blocktime, tz=kyiv_timezone)+timedelta(minutes=minutes_to_add)
+    return t_date.strftime('%d/%m/%Y %H:%M:%S')
 
 
 def get_account_transactions_url(account):  # returns url for Solscan Account transactions
@@ -94,20 +85,16 @@ def process_transactions(transactions):  # transactions list is filtered by 'cha
                     logging.debug(f'Transaction with name {transaction["change"]["tokenName"]} skipped')
                     break
                 logging.debug('Transaction with Cathlete')
-                transaction_date = datetime.fromtimestamp(transaction['blockTime'], timezone.utc).isoformat(' ').replace("+00:00",
-                " (UTC)")
                 seller_signature = transaction['change']['signature'][0]
-                transaction_dict['date'] = transaction_date
+                transaction_dict['date'] = convert_time(transaction['blockTime'])
                 transaction_dict['solscan_token_link'] = 'https://api.solscan.io/account?address=' + transaction[
                     "change"]["tokenAddress"]
                 transaction_dict['transaction_signature'] = seller_signature
                 logging.debug(f"Transaction: {transaction_dict['date']} -- {transaction_dict['solscan_token_link']} --"
                               f" {transaction_dict['transaction_signature']} is added")
             else:
-                transaction_date = datetime.fromtimestamp(transaction['blockTime'], timezone.utc).isoformat(
-                    ' ').replace("+00:00", " (UTC)")
                 seller_signature = transaction['change']['signature'][0]
-                transaction_dict['date'] = transaction_date
+                transaction_dict['date'] = convert_time(transaction['blockTime'])
                 transaction_dict['solscan_token_link'] = 'https://api.solscan.io/account?address=' + \
                                                          transaction["change"]["tokenAddress"]
                 transaction_dict['transaction_signature'] = seller_signature

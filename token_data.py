@@ -4,9 +4,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
 import html_to_json
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 class Token:
@@ -18,15 +15,18 @@ class Token:
 
     def __repr__(self):
         return f'Name: {self.name}\nRarity: {self.rarity}\nEnergy: {self.energy}\nBreed count: ' \
-               f'{self.breed_count}\nLevel: {self.level}\nGems current: {self.gems_current}\nGems lef: ' \
-               f'{self.gems_left}\nStrength: {self.strength}\nStamina: {self.stamina}\nSpeed: {self.speed}\nBody: ' \
-               f'{self.body}\nEars: {self.ears}\nFace: {self.face}\n Path: {self.path}\n Seller: {self.seller}\n ' \
-               f'Time: {self.time}\n Max attribute: {self.max_attr}'
+               f'{self.breed_count}\nLevel: {self.level}\nGems current: {self.gems_current}\nGems left: ' \
+               f'{self.gems_left}\nStrength: {self.strength}\nStamina: {self.stamina}\nSpeed: ' \
+               f'{self.speed}\nColor: {self.color}\nEnvironment: {self.environment}\nBody: ' \
+               f'{self.body}\nTail: {self.tail}\nEars: {self.ears}\nFace: {self.face}\n Path: {self.path}\n Seller:' \
+               f' {self.seller}\nTime: {self.time}\n Max attribute: {self.max_attr}'
 
     def __str__(self):
-        return f"{self.name}   {self.rarity}  {self.level}/{self.breed_count}   Max: {self.max_attr}\n\nBody:" \
-               f" {self.body.rstrip('% have this gene')}\nEars: {self.ears.rstrip('% have this gene')}\n" \
-               f"Face: {self.face.rstrip('% have this gene')}\nTime: {self.time}\nSeller: {self.seller[-4:]}"
+        return f"{self.name}   {self.rarity}  {self.level}/{self.breed_count}   Max: {self.max_attr}\n\nGems " \
+               f"current: {self.gems_current}\nGems left: {self.gems_left}\n\nColor: " \
+               f"{self.color.rstrip('% have this gene')}\nEnvironment: {self.environment.rstrip('% have this gene')}\nBody:" \
+               f" {self.body.rstrip('% have this gene')}\nTail: {self.tail.rstrip('% have this gene')}\nEars:" \
+               f" {self.ears.rstrip('% have this gene')}\nFace: {self.face.rstrip('% have this gene')}\nTime: {self.time}\nSeller: {self.seller[-4:]}"
 
     def get_html_content(self):
         driver = Chrome(headless=True, patcher_force_close=True)
@@ -52,7 +52,10 @@ class Token:
         self.strength = self.get_strength(output)
         self.stamina = self.get_stamina(output)
         self.speed = self.get_speed(output)
+        self.color = self.get_color(output)
+        self.environment = self.get_environment(output)
         self.body = self.get_body(output)
+        self.tail = self.get_tail(output)
         self.ears = self.get_ears(output)
         self.face = self.get_face(output)
         self.max_attr = self.get_max_attr()
@@ -140,6 +143,18 @@ class Token:
         except:
             return "Speed not available"
 
+    def get_color(self, output):
+        try:
+            return output['html'][0]['body'][0]['div'][0]['main'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][3]['div'][0]['div'][0]['div'][0]['div'][1]['div'][0]['div'][0]['span'][1]['_value']
+        except:
+            return "Color not available"
+
+    def get_environment(self, output):
+        try:
+            return output['html'][0]['body'][0]['div'][0]['main'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][3]['div'][0]['div'][0]['div'][0]['div'][1]['div'][1]['div'][0]['span'][1]['_value']
+        except:
+            return "Environment not available"
+
     def get_body(self, output):
         try:
             return output['html'][0]['body'][0]['div'][0]['main'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][0][
@@ -147,6 +162,11 @@ class Token:
         except:
             return "Body not available"
 
+    def get_tail(self, output):
+        try:
+            return output['html'][0]['body'][0]['div'][0]['main'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][3]['div'][0]['div'][0]['div'][0]['div'][1]['div'][3]['div'][0]['span'][1]['_value']
+        except:
+            return "Tail not available"
     def get_ears(self, output):
         try:
             return output['html'][0]['body'][0]['div'][0]['main'][0]['div'][0]['div'][0]['div'][0]['div'][0]['div'][0][
@@ -162,7 +182,7 @@ class Token:
             return "Face not available"
 
     def get_max_attr(self):
-        stamina = float(self.stamina.split('/')[0])
-        speed = float(self.speed.split('/')[0])
-        strength = float(self.strength.split('/')[0])
+        stamina = float(self.stamina.split('/')[1])
+        speed = float(self.speed.split('/')[1])
+        strength = float(self.strength.split('/')[1])
         return max(strength, stamina, speed)
