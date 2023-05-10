@@ -114,17 +114,16 @@ def get_external_link(tokens_data: list[dict]):  # extracts external link to get
         try:
             ipfs_link = int_token_data['data']['metadata']['data']['uri']
             logging.debug(f'IPFS link: \n{ipfs_link}')
-        except:
-            logging.error('Ipfs link data failed', exc_info=True)
-        else:
             ipfs_data = get_data(ipfs_link)
             logging.debug(f'ipfs data: \n{ipfs_data}')
             external_link = ipfs_data['external_url']
             logging.debug(f'External link: {external_link}')
             if ipfs_data['attributes'][1]['value'] == 'Uncommon' or ipfs_data['attributes'][1]['value'] == 'Rare':
                 logging.debug(f'Token filtered by rarity')
-                logging.debug(f"Token added -- {transaction_dict['solscan_token_link']} -- external link: {external_link}")
-                seller_link = 'https://api.solscan.io/transaction?tx=' + transaction_dict['transaction_signature'] + '&cluster='
+                logging.debug(
+                    f"Token added -- {transaction_dict['solscan_token_link']} -- external link: {external_link}")
+                seller_link = 'https://api.solscan.io/transaction?tx=' + transaction_dict[
+                    'transaction_signature'] + '&cluster='
                 seller_data = get_data(seller_link)
                 logging.debug('Extracted seller data')
                 seller = seller_data['signer'][0]
@@ -132,8 +131,29 @@ def get_external_link(tokens_data: list[dict]):  # extracts external link to get
                 transaction_dict['external link'] = external_link
                 transaction_dict['seller'] = seller
                 external_links.append(transaction_dict)
+        except:
+            logging.error('Ipfs link data failed', exc_info=True)
+
     logging.info(f'External links: \n{external_links}')
     return external_links
+
+
+def walken_token(external_links, chat_id):
+    for token_data in external_links:
+        try:
+            t_path = token_data['external link']
+            t_date = token_data['date']
+            t_seller = token_data['seller']
+            token_obj = Token(t_path, t_date, t_seller)
+            token_str = token_obj.__str__()
+            logging.info(f'Token\n{token_obj.__str__()}')
+            if int(token_obj.breed_count) != 0:
+                logging.info(f'Token skipped: {token_obj.name} {token_obj.path}')
+                break
+            logging.info(f'Token {token_obj.name} TG sent')
+            bot.send_message(chat_id=chat_id, text=token_str)
+        except:
+            logging.error(f"Token {token_data} is not available", exc_info=True)
 
 
 def send_updates(chat_id):  # method which runs the token data extraction flow
@@ -150,26 +170,9 @@ def send_updates(chat_id):  # method which runs the token data extraction flow
 
     external_links = get_external_link(filtered_transactions)
     logging.info('External links retrieved')
+    logging.debug('Calling token_generator')
+    walken_token(external_links, chat_id)
+    logging.debug('Tokens sent')
 
-    tokens_list = []
-    for token_data in external_links:
-        try:
-            t_path = token_data['external link']
-            t_date = token_data['date']
-            t_seller = token_data['seller']
-            token_obj = Token(t_path, t_date, t_seller)
-            logging.info(f'Token\n{token_obj.__str__()}')
-            if int(token_obj.breed_count) != 0:
-                logging.info(f'Token skipped: {token_obj} {token_obj.path}')
-                break
-            logging.info(f'Token with breed 0 added: {token_obj}')
-            tokens_list.append(token_obj)
-        except:
-            logging.error(f"Token {token_data} is not available", exc_info=True)
-    logging.info(f'Tokens list {tokens_list}')
-    for token in tokens_list:
-        token_str = token.__str__()
-        logging.debug(f'Sending TG message {token.name}')
-        bot.send_message(chat_id=chat_id, text=token_str, parse_mode= 'Markdown')
 
 bot.polling()
