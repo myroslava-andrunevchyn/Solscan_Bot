@@ -11,7 +11,27 @@ from pytz import timezone
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)s - %(levelname)s - %(message)s',
+                    datefmt='%d-%b-%y %H:%M:%S', filename='app.log', filemode='w')
+
+#logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
+
+# creating console handler, setting level to INFO and setting formatter
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+console.setFormatter(formatter)
+
+# creating file handler, setting level to DEBUG and setting formatter
+#log_path = os.path.join(os.getcwd(), 'app.log')
+#fh = logging.FileHandler(log_path)
+#fh.setLevel(logging.INFO)
+#fh.setFormatter(formatter)
+logging.getLogger('').addHandler(console)
+# adding handlers to logger
+#logger.addHandler(console)
+#logger.addHandler(fh)
+
 
 account = 'A2B1w2fpwuJZrF9b69KBFb6Cn4Cp7siKGqQwPBJEGLYj'  # account name needed for data extraction
 last_change_id = None
@@ -23,7 +43,8 @@ bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
 @bot.message_handler(commands=['start'])
 def command_start(message):
     chat_id = message.chat.id
-    bot.reply_to(message, "Hello, now I'll be sending you updates on tokens")
+    message_text = 'Welcome to SolscanBot v0.01'
+    bot.reply_to(message, message_text)
     while True:
         send_updates(chat_id)
         time.sleep(120)
@@ -67,7 +88,8 @@ def get_transactions(data):  # process transactions data and filter by LastChang
         transactions.append(transaction)
     last_change_id = transactions_data[0]['change']['_id']
     logging.debug(f'Last change id (the id of last transaction in this bulk) -- {last_change_id}')
-    logging.info(f'List of transactions(no filter) -- {transactions}')
+    logging.debug(f'List of transactions(no filter) -- {transactions}')
+    logging.info(f'{len(transactions)} - transactions(no filter) received')
     return transactions
 
 
@@ -85,7 +107,10 @@ def process_transactions(transactions):  # transactions list is filtered by 'cha
                     logging.debug(f'Transaction with name {transaction["change"]["tokenName"]} skipped')
                     break
                 logging.debug('Transaction with Cathlete')
-                seller_signature = transaction['change']['signature'][0]
+                try:
+                    seller_signature = transaction['change']['signature'][0]
+                except:
+                    logging.error(f'Seller signature not available')
                 transaction_dict['date'] = convert_time(transaction['blockTime'])
                 transaction_dict['solscan_token_link'] = 'https://api.solscan.io/account?address=' + transaction[
                     "change"]["tokenAddress"]
@@ -101,7 +126,8 @@ def process_transactions(transactions):  # transactions list is filtered by 'cha
                 logging.debug(f"Transaction: {transaction_dict['date']} -- {transaction_dict['solscan_token_link']} -- "
                               f"{transaction_dict['transaction_signature']} is added")
             filtered_transactions.append(transaction_dict)
-    logging.info(f'Filtered transactions: \n{filtered_transactions}')
+    logging.debug(f'Filtered transactions: \n{filtered_transactions}')
+    logging.info(f'{len(filtered_transactions)} - filtered transactions received')
     return filtered_transactions
 
 
@@ -116,12 +142,14 @@ def get_external_link(tokens_data: list[dict]):  # extracts external link to get
             logging.debug(f'IPFS link: \n{ipfs_link}')
             ipfs_data = get_data(ipfs_link)
             logging.debug(f'ipfs data: \n{ipfs_data}')
-            external_link = ipfs_data['external_url']
-            logging.debug(f'External link: {external_link}')
+            try:
+                external_link = ipfs_data['external_url']
+                logging.debug(f'External link: {external_link}')
+            except:
+                logging.error(f'Failed to retrieve external link from ipfs_data')
             if ipfs_data['attributes'][1]['value'] == 'Uncommon' or ipfs_data['attributes'][1]['value'] == 'Rare':
                 logging.debug(f'Token filtered by rarity')
-                logging.debug(
-                    f"Token added -- {transaction_dict['solscan_token_link']} -- external link: {external_link}")
+                logging.debug(f"Token added -- {transaction_dict['solscan_token_link']} -- external link: {external_link}")
                 seller_link = 'https://api.solscan.io/transaction?tx=' + transaction_dict[
                     'transaction_signature'] + '&cluster='
                 seller_data = get_data(seller_link)
@@ -132,9 +160,9 @@ def get_external_link(tokens_data: list[dict]):  # extracts external link to get
                 transaction_dict['seller'] = seller
                 external_links.append(transaction_dict)
         except:
-            logging.error('Ipfs link data failed', exc_info=True)
-
-    logging.info(f'External links: \n{external_links}')
+            logging.error(f'Ipfs link data for transaction {transaction_dict} failed', exc_info=True)
+    logging.debug(f'External links: \n{external_links}')
+    logging.info(f'{len(external_links)} - external links received')
     return external_links
 
 
@@ -146,7 +174,8 @@ def walken_token(external_links, chat_id):
             t_seller = token_data['seller']
             token_obj = Token(t_path, t_date, t_seller)
             token_str = token_obj.__str__()
-            logging.info(f'Token\n{token_obj.__str__()}')
+            logging.debug(f'Token\n{token_obj.__str__()}')
+            logging.info(f'Token {token_obj.name} with {token_obj.breed_count} breeds')
             if int(token_obj.breed_count) != 0:
                 logging.info(f'Token skipped: {token_obj.name} {token_obj.path}')
                 break
@@ -161,15 +190,9 @@ def send_updates(chat_id):  # method which runs the token data extraction flow
     account_url = get_account_transactions_url(account)
     account_data = get_data(account_url)
     logging.info(f'Account data retrieved')
-
     new_transactions = get_transactions(account_data)
-    logging.info(f'New transactions retrieved')
-
     filtered_transactions = process_transactions(new_transactions)
-    logging.info('Filtered transactions received')
-
     external_links = get_external_link(filtered_transactions)
-    logging.info('External links retrieved')
     logging.debug('Calling token_generator')
     walken_token(external_links, chat_id)
     logging.debug('Tokens sent')

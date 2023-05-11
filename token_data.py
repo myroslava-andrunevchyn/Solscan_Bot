@@ -3,6 +3,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 import html_to_json
+import logging
+
+#module_logger = logging.getLogger('bot.token_data')
 
 
 class Token:
@@ -28,6 +31,7 @@ class Token:
                f" {self.ears.rstrip('% have this gene')}\nFace: {self.face.rstrip('% have this gene')}\nTime: {self.time}\nSeller: {self.seller[-4:]}"
 
     def get_html_content(self):
+        logging.info('Getting html content')
         driver = Chrome(headless=True, patcher_force_close=True)
         driver.get(self.path)
         element_present = EC.presence_of_element_located(
@@ -35,6 +39,7 @@ class Token:
         WebDriverWait(driver, 30).until(element_present)
         content = driver.page_source
         driver.close()
+        logging.info('Html content retrieved')
         return content
 
 
