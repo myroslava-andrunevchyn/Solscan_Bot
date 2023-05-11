@@ -32,7 +32,7 @@ class Token:
 
     def get_html_content(self):
         logging.info('Getting html content')
-        driver = Chrome(headless=True, patcher_force_close=True)
+        driver = Chrome(headless=True, patcher_force_close=True, version_main=113)
         driver.get(self.path)
         element_present = EC.presence_of_element_located(
             (By.XPATH, '//*[@id="__next"]/main/div[1]/div/div/div/div[1]/div[2]/div[1]/div[1]/span'))
