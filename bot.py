@@ -62,9 +62,8 @@ def get_account_transactions_url(account):  # returns url for Solscan Account tr
     end = '&offset=0&limit=40'
     return beginning+account+end
 
-
 def get_data(url):  # returns raw transactions data from Solscan
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (HTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36'}
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
@@ -180,7 +179,16 @@ def walken_token(external_links, chat_id):
                 logging.info(f'Token skipped: {token_obj.name} {token_obj.path}')
                 break
             logging.info(f'Token {token_obj.name} TG sent')
-            bot.send_message(chat_id=chat_id, text=token_str)
+            tg_message = f"*{token_obj.name}*   *{token_obj.rarity}*  {token_obj.level}/{token_obj.breed_count}   " \
+                         f"*Max: {token_obj.max_attr}*\n\n*Gems current*: {token_obj.gems_current}\n*Gems left*: " \
+                         f"{token_obj.gems_left}\n\n*Color*: {token_obj.color.rstrip('% have this gene')}                " \
+                         f"*Tail*: {token_obj.tail.rstrip('% have this gene')}\n*Environment*: " \
+                         f"{token_obj.environment.rstrip('% have this gene')}  *Ears*: " \
+                         f"{token_obj.ears.rstrip('% have this gene')}\n*Body*: " \
+                         f"{token_obj.body.rstrip('% have this gene')}                 *Face*:" \
+                         f" {token_obj.face.rstrip('% have this gene')}\n\n*Time*: {token_obj.time}\n*Seller*:" \
+                         f" {token_obj.seller[-4:]}"
+            bot.send_message(chat_id=chat_id, text=tg_message, parse_mode= 'Markdown')
         except:
             logging.error(f"Token {token_data} is not available", exc_info=True)
 
